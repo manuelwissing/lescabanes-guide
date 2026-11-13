@@ -46,7 +46,7 @@ button:disabled{opacity:.6;cursor:wait}
   </form>
 </main>
 <script>
-const SALT=Uint8Array.from(atob("yTyHjwa0zT2OwBozhKHBCQ=="),c=>c.charCodeAt(0)),ITER=250000;
+const SALT=Uint8Array.from(atob("f8uPsvF5L62FaxOHznk6eg=="),c=>c.charCodeAt(0)),ITER=250000;
 const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
 async function open(rawKey){
   const key=await crypto.subtle.importKey("raw",rawKey,"AES-GCM",false,["decrypt"]);
