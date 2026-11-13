@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>The Cabin Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Figtree:wght@400;600;700&family=Kalam:wght@700&display=swap">
+<style>
+:root{--forest:#18211a;--postit:#f5e86a;--alarm:#d3262c;--ink:#1c1b18;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--forest);color:#fff;font:16px/1.5 "Figtree","Segoe UI",system-ui,sans-serif;display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-left,0px)) 24px max(16px,env(safe-area-inset-right,0px))}
+main{width:min(100%,420px);display:flex;flex-direction:column;gap:22px}
+.brand{display:flex;align-items:center;gap:10px;font:600 11px/1.15 "Figtree",sans-serif;letter-spacing:.32em;text-transform:uppercase}
+h1{font:400 clamp(60px,18vw,96px)/.86 "Anton","Impact",sans-serif;margin:0}
+h1 em{font-style:normal;color:var(--postit)}
+p{margin:0;color:#e3ddd2}
+form{background:var(--postit);color:var(--ink);padding:22px 18px 18px;transform:rotate(-1.2deg);box-shadow:0 12px 30px #0006;position:relative;display:flex;flex-direction:column;gap:12px}
+form::before{content:"";position:absolute;top:-9px;left:50%;width:60px;height:18px;transform:translateX(-50%) rotate(-3deg);background:#ffffffa8}
+label{font:700 22px/1 "Kalam","Comic Sans MS",cursive}
+input[type=password]{width:100%;border:2px solid var(--ink);border-radius:999px;padding:12px 16px;font:500 17px "Figtree",sans-serif;background:#fff;color:var(--ink)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rem{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+button{border:0;border-radius:999px;background:var(--ink);color:var(--postit);font:700 16px "Figtree",sans-serif;padding:11px 22px;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+.err{color:var(--alarm);font-weight:700;font-size:14px;min-height:1.2em}
+:focus-visible{outline:3px solid #fff;outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><svg width="34" height="28" viewBox="0 0 34 28" aria-hidden="true"><path d="M2 14 17 3l15 11M8 18 17 11.4 26 18" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Cabanes<br>d’Ostende</span></div>
+  <h1>The Cabin <em>Guide</em></h1>
+  <p>Willkommen! Der Guide ist nur für unsere Gäste. Das Passwort habt ihr mit eurer Buchung bekommen.</p>
+  <form id="f">
+    <label for="pw">Passwort</label>
+    <input id="pw" type="password" autocomplete="current-password" required autofocus>
+    <div class="row">
+      <label class="rem" for="rem"><input id="rem" type="checkbox" checked> Auf diesem Gerät merken</label>
+      <button id="go" type="submit">Öffnen</button>
+    </div>
+    <div class="err" id="err" role="alert"></div>
+  </form>
+</main>
+<script>
+const SALT=Uint8Array.from(atob("yTyHjwa0zT2OwBozhKHBCQ=="),c=>c.charCodeAt(0)),ITER=250000;
+const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
+async function open(rawKey){
+  const key=await crypto.subtle.importKey("raw",rawKey,"AES-GCM",false,["decrypt"]);
+  const b=new Uint8Array(await (await fetch("guide.enc",{cache:"no-cache"})).arrayBuffer());
+  const html=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b.slice(0,12)},key,b.slice(12)));
+  document.open();document.write(html);document.close();
+}
+async function derive(pw){
+  const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveBits"]);
+  return crypto.subtle.deriveBits({name:"PBKDF2",salt:SALT,iterations:ITER,hash:"SHA-256"},base,256);
+}
+const get=k=>{try{return sessionStorage.getItem(k)||localStorage.getItem(k)}catch(e){return null}};
+(async()=>{const s=get("cg-key");if(s){try{await open(Uint8Array.from(atob(s),c=>c.charCodeAt(0)))}catch(e){try{localStorage.removeItem("cg-key");sessionStorage.removeItem("cg-key")}catch(_){}}}})();
+document.getElementById("f").addEventListener("submit",async e=>{
+  e.preventDefault();const btn=document.getElementById("go"),err=document.getElementById("err");
+  btn.disabled=true;err.textContent="";
+  try{
+    const raw=await derive(document.getElementById("pw").value);
+    const s=b64(raw);
+    try{sessionStorage.setItem("cg-key",s);if(document.getElementById("rem").checked)localStorage.setItem("cg-key",s)}catch(_){}
+    await open(raw);
+  }catch(x){
+    try{sessionStorage.removeItem("cg-key");localStorage.removeItem("cg-key")}catch(_){}
+    err.textContent="Das Passwort stimmt leider nicht. Versucht es noch einmal oder fragt uns per WhatsApp.";btn.disabled=false;
+  }
+});
+</script>
+</body>
+</html>
