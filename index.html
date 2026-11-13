@@ -46,15 +46,19 @@ button:disabled{opacity:.6;cursor:wait}
   </form>
 </main>
 <script>
-const SALT=Uint8Array.from(atob("f8uPsvF5L62FaxOHznk6eg=="),c=>c.charCodeAt(0)),ITER=250000;
+let SALT=Uint8Array.from(atob("f8uPsvF5L62FaxOHznk6eg=="),c=>c.charCodeAt(0)),ITER=250000,V="";
 const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
+/* aktuelle Schlüssel-Infos immer frisch vom Server holen (die Seite selbst kann gecacht sein) */
+const meta=fetch("key.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(k=>{SALT=Uint8Array.from(atob(k.salt),c=>c.charCodeAt(0));ITER=k.iter;V=k.v}).catch(()=>{});
 async function open(rawKey){
+  await meta;
   const key=await crypto.subtle.importKey("raw",rawKey,"AES-GCM",false,["decrypt"]);
-  const b=new Uint8Array(await (await fetch("guide.enc",{cache:"no-cache"})).arrayBuffer());
+  const b=new Uint8Array(await (await fetch("guide.enc?v="+V+"&t="+Date.now(),{cache:"no-store"})).arrayBuffer());
   const html=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b.slice(0,12)},key,b.slice(12)));
   document.open();document.write(html);document.close();
 }
 async function derive(pw){
+  await meta;
   const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveBits"]);
   return crypto.subtle.deriveBits({name:"PBKDF2",salt:SALT,iterations:ITER,hash:"SHA-256"},base,256);
 }
